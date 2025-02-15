@@ -5,5 +5,12 @@
     "manifest_version": 3,
     "action": {
         "default_popup": "popup/popup.html"
+    },
+    "permissions": [
+        "tabs",
+        "storage"
+    ],
+    "background": {
+        "service_worker": "service_worker/background.js"
     }
   }
