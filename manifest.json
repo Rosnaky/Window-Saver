@@ -1,0 +1,9 @@
+{
+    "name": "Window Saver",
+    "description": "Remembers tabs so you can reopen them later",
+    "version": "1.0",
+    "manifest_version": 3,
+    "action": {
+        "default_popup": "popup/popup.html"
+    }
+  }
