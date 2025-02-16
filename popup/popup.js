@@ -45,7 +45,7 @@ function updateWindowList() {
     let allWindows = {
         windowClusterId: 0,
         windows: [],
-        windowClusterName: "All Windows"
+        clusterName: "All Windows"
     };
     chrome.windows.getAll({ populate: true }, (windows) => {
             
@@ -123,7 +123,7 @@ function updateWindowList() {
     let allWindows = {
         windowClusterId: 0,
         windows: [],
-        windowClusterName: "All Windows"
+        clusterName: "All Windows"
     };
     chrome.windows.getAll({ populate: true }, (windows) => {
         windows.forEach((window) => {
@@ -182,19 +182,6 @@ function updateCurrentWindowList(windowClusterId) {
                 const windowListContainer = document.getElementById("window-list-container");
                 windowListContainer.innerHTML = "";
 
-                // Create an input to change the window cluster name
-                let clusterNameInput = document.createElement("input");
-                clusterNameInput.value = cluster.clusterName || `Cluster ${windowClusterId}`;
-                clusterNameInput.classList.add("bg-gray-800", "text-white", "p-2", "rounded-lg", "mb-4", "w-full");
-                clusterNameInput.addEventListener("input", (e) => {
-                    // Update cluster name when user changes the input
-                    cluster.clusterName = e.target.value;
-                    chrome.storage.local.set({ windowClusters: windowClusters }, () => {
-                        console.log("Cluster name updated:", cluster.clusterName);
-                    });
-                });
-                windowListContainer.appendChild(clusterNameInput);
-
                 // Create the expandable section for the cluster
                 const clusterSection = document.createElement("div");
                 clusterSection.classList.add("bg-gray-800", "text-white", "rounded-lg", "p-4", "shadow-md", "mb-4");
@@ -202,14 +189,31 @@ function updateCurrentWindowList(windowClusterId) {
                 // Create a header for the cluster with toggle functionality
                 const clusterHeader = document.createElement("div");
                 clusterHeader.classList.add("flex", "justify-between", "items-center", "cursor-pointer");
-                const clusterTitle = document.createElement("h3");
-                clusterTitle.classList.add("text-xl", "font-bold", "text-blue-400");
-                clusterTitle.textContent = cluster.clusterName || `Cluster ${windowClusterId}`;
+
+                // Cluster title as editable input field
+                const clusterTitleWrapper = document.createElement("div");
+                clusterTitleWrapper.classList.add("flex", "items-center", "space-x-2", "w-full");
+
+                const clusterTitleInput = document.createElement("input");
+                clusterTitleInput.value = cluster.clusterName || `Cluster ${windowClusterId}`;
+                clusterTitleInput.classList.add("text-xl", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-60");
+                clusterTitleInput.addEventListener("input", (e) => {
+                    // Update cluster name when user changes the input
+                    cluster.clusterName = e.target.value;
+                    chrome.storage.local.set({ windowClusters: windowClusters }, () => {
+                        console.log("Cluster name updated:", cluster.clusterName);
+                    });
+                });
+
+                clusterTitleWrapper.appendChild(clusterTitleInput);
+
+                // Create the toggle icon (▼/▲)
                 const toggleIcon = document.createElement("span");
                 toggleIcon.textContent = "▼"; // Arrow indicating expandable section
-
-                clusterHeader.appendChild(clusterTitle);
-                clusterHeader.appendChild(toggleIcon);
+                toggleIcon.classList.add("ml-4");
+                
+                clusterTitleWrapper.appendChild(toggleIcon);
+                clusterHeader.appendChild(clusterTitleWrapper);
                 clusterSection.appendChild(clusterHeader);
 
                 // Create the window list (initially hidden)
@@ -224,11 +228,26 @@ function updateCurrentWindowList(windowClusterId) {
                     // Create a window header (renamable)
                     const windowHeader = document.createElement("div");
                     const windowTitle = document.createElement("input");
-                    windowTitle.value = `Window ${window.windowId}`;
-                    windowTitle.classList.add("bg-gray-800", "text-white", "p-2", "rounded-lg", "w-full");
+                    windowTitle.value = window.windowName || `Window ${window.windowId}`;
+                    windowTitle.classList.add("bg-gray-800", "p-2", "mb-2", "rounded-lg", "w-full", "text-teal-500", "font-semibold");
                     windowTitle.addEventListener("input", (e) => {
                         // Update window name when user changes the input
                         window.windowName = e.target.value;
+                        chrome.storage.local.get((result) => {
+                            if (result.windowClusters) {
+                                const clusterIndex = result.windowClusters.findIndex(cluster => cluster.windowClusterId === windowClusterId);
+                                const windowIndex = result.windowClusters[clusterIndex].windows.findIndex(win => win.windowId === window.windowId);
+                                
+                                const data = result.windowClusters;
+                                data[clusterIndex].windows[windowIndex].windowName = e.target.value;
+
+                                chrome.storage.local.set({windowClusters: data}, () => {
+                                    console.log("Changed window name");
+                                    console.log(window.windowName, clusterIndex, windowIndex);
+                                    console.log(data);
+                                });
+                            }
+                        });
                     });
                     windowHeader.appendChild(windowTitle);
                     windowItem.appendChild(windowHeader);
@@ -241,16 +260,15 @@ function updateCurrentWindowList(windowClusterId) {
                     const limitedTabs = window.tabs.slice(0, 5);
                     limitedTabs.forEach(tab => {
                         const tabItem = document.createElement("li");
-                        tabItem.classList.add("text-xs", "text-gray-300", "bg-gray-800", "p-1", "rounded-lg", "hover:bg-gray-600", "overflow-hidden", "truncate");
-
-                        // Create a link for each tab item
-                        const tabLink = document.createElement("a");
-                        tabLink.href = tab.url; // Assuming `tab.url` contains the URL for the tab
-                        tabLink.target = "_blank"; // Open in a new tab
-                        tabLink.classList.add("text-xs", "text-gray-300", "hover:text-blue-400", "block", "truncate");
-                        tabLink.textContent = tab.title; // Only show the title (will truncate if it's too long)
+                        tabItem.classList.add("text-sm", "text-gray-300", "bg-gray-800", "p-2", "rounded-lg");
                         
+                        // Create clickable link for each tab
+                        const tabLink = document.createElement("a");
+                        tabLink.href = tab.url;
+                        tabLink.target = "_blank"; // Open link in a new tab
+                        tabLink.textContent = tab.title;
                         tabItem.appendChild(tabLink);
+                        
                         tabList.appendChild(tabItem);
                     });
 
@@ -262,43 +280,18 @@ function updateCurrentWindowList(windowClusterId) {
                         tabList.innerHTML = ""; // Clear the list
                         window.tabs.forEach(tab => {
                             const tabItem = document.createElement("li");
-                            tabItem.classList.add("text-xs", "text-gray-300", "bg-gray-800", "p-1", "rounded-lg", "hover:bg-gray-600", "overflow-hidden", "truncate");
-
-                            // Create a link for each tab item
-                            const tabLink = document.createElement("a");
-                            tabLink.href = tab.url; // Assuming `tab.url` contains the URL for the tab
-                            tabLink.target = "_blank"; // Open in a new tab
-                            tabLink.classList.add("text-xs", "text-gray-300", "hover:text-blue-400", "block", "truncate");
-                            tabLink.textContent = tab.title; // Only show the title (will truncate if it's too long)
+                            tabItem.classList.add("text-sm", "text-gray-300", "bg-gray-800", "p-2", "rounded-lg");
                             
+                            // Create clickable link for each tab
+                            const tabLink = document.createElement("a");
+                            tabLink.href = tab.url;
+                            tabLink.target = "_blank"; // Open link in a new tab
+                            tabLink.textContent = tab.title;
                             tabItem.appendChild(tabLink);
+                            
                             tabList.appendChild(tabItem);
                         });
                         showMoreButton.remove(); // Remove the show more button after expanding
-                        windowItem.appendChild(hideButton);
-                    });
-
-                    const hideButton = document.createElement("button");
-                    hideButton.classList.add("bg-blue-500", "text-white", "p-2", "rounded-lg", "mt-4");
-                    hideButton.textContent = "Hide Tabs";
-                    hideButton.addEventListener("click", () => {
-                        tabList.innerHTML = ""; // Clear the list
-                        limitedTabs.forEach(tab => {
-                            const tabItem = document.createElement("li");
-                            tabItem.classList.add("text-xs", "text-gray-300", "bg-gray-800", "p-1", "rounded-lg", "hover:bg-gray-600", "overflow-hidden", "truncate");
-
-                            // Create a link for each tab item
-                            const tabLink = document.createElement("a");
-                            tabLink.href = tab.url; // Assuming `tab.url` contains the URL for the tab
-                            tabLink.target = "_blank"; // Open in a new tab
-                            tabLink.classList.add("text-xs", "text-gray-300", "hover:text-blue-400", "block", "truncate");
-                            tabLink.textContent = tab.title; // Only show the title (will truncate if it's too long)
-                            
-                            tabItem.appendChild(tabLink);
-                            tabList.appendChild(tabItem);
-                        });
-                        hideButton.remove(); // Remove the show more button after expanding
-                        windowItem.appendChild(showMoreButton);
                     });
 
                     windowItem.appendChild(tabList);

@@ -7,10 +7,11 @@ interface TabInfo {
 interface WindowInfo {
     windowId: number;
     tabs: TabInfo[];
+    windowName: string;
 }
 
 interface WindowCluster {
     windowClusterId: number;
     windows: WindowInfo[];
-    windowClusterName: string;
+    clusterName: string;
 }
