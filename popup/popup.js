@@ -292,10 +292,33 @@ function updateCurrentWindowList(windowClusterId) {
                             tabList.appendChild(tabItem);
                         });
                         showMoreButton.remove(); // Remove the show more button after expanding
+                        windowItem.appendChild(hideButton);
+                    });
+
+                    const hideButton = document.createElement("button");
+                    hideButton.classList.add("bg-blue-500", "text-white", "p-2", "rounded-lg", "mt-4");
+                    hideButton.textContent = "Hide Tabs";
+                    hideButton.addEventListener("click", () => {
+                        tabList.innerHTML = ""; // Clear the list
+                        limitedTabs.forEach(tab => {
+                            const tabItem = document.createElement("li");
+                            tabItem.classList.add("text-sm", "text-gray-300", "bg-gray-800", "p-2", "rounded-lg");
+                            
+                            // Create clickable link for each tab
+                            const tabLink = document.createElement("a");
+                            tabLink.href = tab.url;
+                            tabLink.target = "_blank"; // Open link in a new tab
+                            tabLink.textContent = tab.title;
+                            tabItem.appendChild(tabLink);
+                            
+                            tabList.appendChild(tabItem);
+                        });
+                        hideButton.remove(); // Remove the show more button after expanding
+                        windowItem.appendChild(showMoreButton);
                     });
 
                     windowItem.appendChild(tabList);
-                    windowItem.appendChild(showMoreButton);
+                    if (window.tabs.length > 5) windowItem.appendChild(showMoreButton);
                     windowList.appendChild(windowItem);
                 });
 
