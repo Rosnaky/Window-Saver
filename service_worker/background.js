@@ -12,3 +12,8 @@ chrome.action.onClicked.addListener((tab) => {
         console.log("Saved tabs:", result.savedTabs);
     });
 });
+
+// Event listeners to track tab changes
+chrome.tabs.onCreated.addListener(() => updateWindowList());
+chrome.tabs.onRemoved.addListener(() => updateWindowList());
+chrome.tabs.onUpdated.addListener(() => updateWindowList());

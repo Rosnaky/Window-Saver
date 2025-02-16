@@ -31,12 +31,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    
-
-    // Event listeners to track tab changes
-    chrome.tabs.onCreated.addListener(() => updateWindowList());
-    chrome.tabs.onRemoved.addListener(() => updateWindowList());
-    chrome.tabs.onUpdated.addListener(() => updateWindowList());
 });
 
 
@@ -67,79 +61,6 @@ function updateWindowList() {
     updateCurrentWindowList(0);
 }
 
-function saveClusterToLocal(windowClusterId, data) {
-    chrome.storage.local.get("windowClusters", (result) => {
-        if (result.windowClusters === null) return;
-        
-        let windowClusters = result.windowClusters;
-        const clusterIndex = windowClusters.findIndex(cluster => cluster.windowClusterId === windowClusterId);
-
-        if (clusterIndex !== -1) {
-            windowClusters[clusterIndex] = { ...windowClusters[clusterIndex], ...data };
-        } 
-        else {
-            windowClusters.push({windowClusterId, ...data});
-        }
-
-        chrome.storage.local.set({ windowClusters: windowClusters }, () => {
-            console.log("Tabs saved successfully!");
-
-            chrome.storage.local.get("windowClusters", (result) => {
-                console.log("Saved Tabs:", result.windowClusters);
-            });
-        });
-    });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    const saveButton = document.getElementById("save-btn");
-    if (saveButton) {
-        saveButton.addEventListener("click", () => updateWindowList());
-    }
-    
-    chrome.storage.local.get("windowClusters", (result) => {
-        // Check if "windowClusters" exists and is not null or undefined
-        if (!result.windowClusters) {
-            // If "windowClusters" doesn't exist, set it to an empty array
-            chrome.storage.local.set({ windowClusters: [] }, () => {
-                console.log("Window clusters not found, initializing to an empty array.");
-            });
-        } else {
-            console.log("Window clusters already exist.");
-            result.windowClusters.forEach((cluster) => {
-                updateCurrentWindowList(cluster.windowClusterId);
-            });
-        }
-    });
-    
-
-    // Event listeners to track tab changes
-    chrome.tabs.onCreated.addListener(() => updateWindowList());
-    chrome.tabs.onRemoved.addListener(() => updateWindowList());
-    chrome.tabs.onUpdated.addListener(() => updateWindowList());
-});
-
-function updateWindowList() {
-    let allWindows = {
-        windowClusterId: 0,
-        windows: [],
-        clusterName: "All Windows"
-    };
-    chrome.windows.getAll({ populate: true }, (windows) => {
-        windows.forEach((window) => {
-            allWindows.windows.push({
-                windowId: window.id,
-                tabs: window.tabs.map((tab) => ({
-                    id: tab.id,
-                    title: tab.title,
-                    url: tab.url,
-                })),
-            });
-        });
-    });
-    saveClusterToLocal(0, allWindows);
-    updateCurrentWindowList(0);
-}
 
 function saveClusterToLocal(windowClusterId, data) {
     chrome.storage.local.get("windowClusters", (result) => {
