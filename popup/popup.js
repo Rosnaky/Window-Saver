@@ -96,8 +96,6 @@ function getAllWindows() {
         clusterName: "All Windows"
     };
     chrome.windows.getAll({ populate: true }, (windows) => {
-            
-
         windows.forEach((window) => {
             allWindows.windows.push({
                 windowId: window.id,
@@ -108,6 +106,32 @@ function getAllWindows() {
                 })),
             });
         });
+
+        chrome.storage.local.get("windowClusters", (result) => {
+            let windowClusters = result.windowClusters;
+            if (windowClusters) {
+                windowClusters.forEach((cluster) => {
+                    let newCluster = {
+                        windowClusterId: cluster.windowClusterId,
+                        windows: [],
+                        windowName: cluster.windowName ?? null
+                    }
+
+                    cluster.windows.forEach((window) => {
+                        const winIdx = allWindows.windows.findIndex((win) => win.windowId === window.windowId);
+
+                        if (winIdx) {
+                            newCluster.windows.push(allWindows.windows[winIdx]);
+                        }
+                        else {
+                            newCluster.windows.push(window);
+                        }
+                    })
+
+                    saveClusterToLocal(newCluster.windowClusterId, newCluster);
+                })
+            }
+        })
     });
 
     return allWindows;
@@ -218,13 +242,6 @@ function openWindow(windowId, tabs) {
                         cluster.windows.forEach((window) => {
                             if (window.windowId === windowId) {
                                 window.windowId = newWindow.id;
-
-
-                                // window.tabs = newWindow.tabs.map(tab => ({
-                                //     url: tab.url,
-                                //     id: tab.id,
-                                //     title: tab.title // If you want to retain the tab title, add other properties here
-                                // }));
                             }
                         })
                     })
