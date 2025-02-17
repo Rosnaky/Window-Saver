@@ -296,6 +296,24 @@ textarea,
   opacity: 1; /* 4 */
 }
 
+@layer components {
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px; /* Thin scrollbar */
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #333; /* Dark thumb */
+    border-radius: 9999px; /* Rounded corners */
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #555; /* Lighter dark when hovered */
+  }
+  ::-webkit-scrollbar-track {
+    background-color: #222; /* Dark track */
+  }
+}
+
+
 /*
   Restore default font weight.
 */

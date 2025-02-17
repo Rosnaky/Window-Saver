@@ -1,0 +1,20 @@
+/* Import TailwindCSS - make sure to include this line if not using CDN */
+@import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+
+/* Global styles */
+@layer components {
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px; /* Thin scrollbar */
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #333; /* Dark thumb */
+    border-radius: 9999px; /* Rounded corners */
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #555; /* Lighter dark when hovered */
+  }
+  ::-webkit-scrollbar-track {
+    background-color: #222; /* Dark track */
+  }
+}

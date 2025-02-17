@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             console.log("Window clusters already exist.");
             result.windowClusters.forEach((cluster) => {
-                updateCurrentWindowList(cluster.windowClusterId);
+                updateCurrentWindowList();
             })
         }
     });
@@ -31,9 +31,47 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    let addCluster = document.getElementById("add-cluster-button");
+    addCluster.addEventListener("click", () => addEmptyCluster());
+
 });
 
+function addEmptyCluster() {
+    chrome.storage.local.get("windowClusters", (result) => {
+        let windowClusters = result.windowClusters;
+        const id = windowClusters.length ?? 0;
+        const newCluster = {
+            windowClusterId: id,
+            windows: [],
+        }
+        if (windowClusters) {
+            windowClusters.push(newCluster);
+        }
+        else {
+            windowClusters = [newCluster];
+        }
 
+        chrome.storage.local.set({windowClusters: windowClusters}, () => {
+            updateCurrentWindowList()
+            console.log("Added window cluster", windowClusters);
+        });
+    });
+}
+
+function deleteCluster(windowClusterId) {
+    chrome.storage.local.get("windowClusters", (result) => {
+        let windowClusters = result.windowClusters;
+        if (windowClusters) {
+            windowClusters = windowClusters.filter(cluster => cluster.windowClusterId !== windowClusterId);
+
+            chrome.storage.local.set({windowClusters: windowClusters}, () => {
+                updateCurrentWindowList()
+                console.log("Removed window cluster");
+            });
+        }
+
+    });
+}
 
 function updateWindowList() {
     let allWindows = {
@@ -58,7 +96,7 @@ function updateWindowList() {
         
     });
     saveClusterToLocal(0, allWindows);
-    updateCurrentWindowList(0);
+    updateCurrentWindowList();
 }
 
 
@@ -137,15 +175,16 @@ function openWindow(windowId, tabs) {
     });
 }
 
-function updateCurrentWindowList(windowClusterId) {
+function updateCurrentWindowList() {
     chrome.storage.local.get("windowClusters", (result) => {
         if (result.windowClusters) {
             let windowClusters = result.windowClusters;
-            let cluster = windowClusters.find(cluster => cluster.windowClusterId === windowClusterId);
+            let clusterContainer = document.getElementById("window-list-container");
+            clusterContainer.innerHTML = "";
             
-            if (cluster) {
+            windowClusters.forEach((cluster) => {
                 // Clear the existing window list
-                const windowListContainer = document.getElementById("window-list-container");
+                let windowListContainer = document.createElement("div");
                 windowListContainer.innerHTML = "";
 
                 // Create the expandable section for the cluster
@@ -161,8 +200,8 @@ function updateCurrentWindowList(windowClusterId) {
                 clusterTitleWrapper.classList.add("flex", "items-center", "space-x-2", "w-full");
 
                 const clusterTitleInput = document.createElement("input");
-                clusterTitleInput.value = cluster.clusterName || `Cluster ${windowClusterId}`;
-                clusterTitleInput.classList.add("text-lg", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-40");
+                clusterTitleInput.value = cluster.clusterName || `Cluster ${cluster.windowClusterId}`;
+                clusterTitleInput.classList.add("text-lg", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-35");
                 clusterTitleInput.addEventListener("input", (e) => {
                     // Update cluster name when user changes the input
                     cluster.clusterName = e.target.value;
@@ -176,21 +215,37 @@ function updateCurrentWindowList(windowClusterId) {
                 // Create the toggle icon (▼/▲)
                 const toggleIcon = document.createElement("span");
                 toggleIcon.textContent = "▼"; // Arrow indicating expandable section
-                toggleIcon.classList.add("ml-4");
+                toggleIcon.classList.add("p-4");
 
                 const openAllButton = document.createElement("button");
                 openAllButton.classList.add("bg-gray-700", "text-white", "p-2", "rounded-lg");
-                openAllButton.textContent = "Open All";
+                openAllButton.textContent = "Open";
                 openAllButton.addEventListener("click", () => {
                     console.log("Open window");
                     cluster.windows.forEach((window) => {
                         openWindow(window.windowId, window.tabs);
                     });
                 });
+                
+                const deleteIcon = document.createElement("div");
+                deleteIcon.textContent = "DEL";
+                deleteIcon.classList.add("w-8", "h-6", "text-center", "font-semibold", "bg-red-600", "rounded-lg");
+                deleteIcon.addEventListener("click", () => {
+                    const userConfirmed = confirm("Are you sure you want to delete this item?");
+                    if (userConfirmed) {
+                        // Proceed with the deletion logic
+                        deleteCluster(cluster.windowClusterId);
+                        console.log("Item deleted.");
+                    } else {
+                        // Do nothing if the user cancels
+                        console.log("Deletion canceled.");
+                    }
+                });
 
                 
                 clusterTitleWrapper.appendChild(openAllButton);
                 clusterTitleWrapper.appendChild(toggleIcon);
+                clusterTitleWrapper.appendChild(deleteIcon);
                 clusterHeader.appendChild(clusterTitleWrapper);
                 clusterSection.appendChild(clusterHeader);
 
@@ -305,7 +360,7 @@ function updateCurrentWindowList(windowClusterId) {
                 windowListContainer.appendChild(clusterSection);
 
                 // Toggle visibility of the window list when the cluster header is clicked
-                clusterHeader.addEventListener("click", () => {
+                toggleIcon.addEventListener("click", () => {
                     const isHidden = windowList.classList.contains("hidden");
                     if (isHidden) {
                         windowList.classList.remove("hidden");
@@ -315,7 +370,9 @@ function updateCurrentWindowList(windowClusterId) {
                         toggleIcon.textContent = "▼"; // Change to down arrow when collapsed
                     }
                 });
-            }
+
+                clusterContainer.appendChild(windowListContainer);
+            });
         }
     });
 }
