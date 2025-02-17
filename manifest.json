@@ -1,5 +1,5 @@
 {
-    "name": "Window Saver",
+    "name": "Tab Saver",
     "description": "Remembers tabs so you can reopen them later",
     "version": "1.0",
     "manifest_version": 3,
@@ -12,5 +12,8 @@
     ],
     "background": {
         "service_worker": "service_worker/background.js"
+    },
+    "icons": {
+        "128": "icons/icon500.png"
     }
   }
