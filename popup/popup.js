@@ -69,7 +69,6 @@ function deleteCluster(windowClusterId) {
                 console.log("Removed window cluster");
             });
         }
-
     });
 }
 
@@ -109,13 +108,13 @@ function getAllWindows() {
                 })),
             });
         });
-
-        
     });
+
+    return allWindows;
 }
 
 function updateWindowList() {
-    getAllWindows();
+    const allWindows = getAllWindows();
     saveClusterToLocal(0, allWindows);
     updateCurrentWindowList();
 }
@@ -151,23 +150,18 @@ function saveClusterToLocal(windowClusterId, data) {
     });
 }
 
-function isTabOpen(url, windowId, tabId) {
-    chrome.windows.getAll({ populate: true }, (windows) => {
-        windows.forEach((window) => {
-            const targetWindow = windows.find((window) => {
-                window.id == windowId;
-            });
-            if (targetWindow) {
-                const targetTab = windows.tabs.find((tab) => {
-                    tab.id == tabId;
-                });
+function isTabOpen(url, windowId, tabId, windows) {
+    
+    const targetWindow = windows.find((window) => window.id === windowId);
+    console.log(windowId, targetWindow);
 
-                if (targetTab) {
-                    return tab.url === url;
-                }
-            }
-        });
-    });
+    if (targetWindow) {
+        const targetTab = targetWindow.tabs.find((tab) => tab.id === tabId);
+        if (targetTab) {
+            const sameUrl = (targetTab.url === url);
+            return sameUrl;
+        }
+    }
 
     return false;
 }
@@ -175,11 +169,11 @@ function isTabOpen(url, windowId, tabId) {
 function openWindow(windowId, tabs) {
     chrome.windows.getAll({ populate: true }, (windows) => {
         const targetWindow = windows.find((window) => window.id === windowId);
-        console.log(windowId, targetWindow);
+        console.log(tabs);
         
         if (targetWindow) {
             tabs.forEach((tab) => {
-                if (!isTabOpen(tab.url, windowId, tab.id)) {
+                if (!isTabOpen(tab.url, windowId, tab.id, windows)) {
                     chrome.tabs.create({
                         windowId: windowId,
                         url: tab.url,
@@ -191,7 +185,56 @@ function openWindow(windowId, tabs) {
                     console.log("Tab already open", window.id, tab.url);
                 }
             });
+        }
+        else {
+            chrome.storage.local.get((result) => {
+                let allClusters = result.windowClusters;
+                const cluster = allClusters.find((c) => c.windowClusterId === 0);
+                if (!cluster) {
+                    console.log("Cluster not found");
+                    return;
+                }
             
+                const targetWindow = cluster.windows.find((w) => w.windowId === windowId);
+                if (!targetWindow) {
+                    console.log("Window not found");
+                    return;
+                }
+            
+                chrome.windows.create({
+                    url: targetWindow.tabs.map(tab => tab.url),
+                    width: 1920,
+                    height: 1080,
+                    left: 0,
+                    top: 0
+                }, (newWindow) => {
+                    if (!newWindow) {
+                        console.log("Failed to create window");
+                        return;
+                    }
+                    console.log(newWindow);
+                    
+                    allClusters.forEach((cluster) => {
+                        cluster.windows.forEach((window) => {
+                            if (window.windowId === windowId) {
+                                window.windowId = newWindow.id;
+
+
+                                // window.tabs = newWindow.tabs.map(tab => ({
+                                //     url: tab.url,
+                                //     id: tab.id,
+                                //     title: tab.title // If you want to retain the tab title, add other properties here
+                                // }));
+                            }
+                        })
+                    })
+
+                    // Update storage with the new window ID
+                    chrome.storage.local.set({ windowClusters: allClusters }, () => {
+                        console.log(`Updated window ID to ${newWindow.id}`);
+                    });
+                });
+            });
         }
     });
 }
@@ -349,6 +392,7 @@ function openWindowModal(clusterId) {
                 console.log(`Windows added to cluster: ${clusterId}`);
                 modal.remove(); // Close modal
                 updateCurrentWindowList(); // Refresh UI
+                return;
             });
         });
     };
@@ -411,6 +455,7 @@ function updateCurrentWindowList() {
                     if (userConfirmed) {
                         cluster.windows.forEach((window) => {
                             openWindow(window.windowId, window.tabs);
+                            updateCurrentWindowList();
                         });
                     }
                 });
