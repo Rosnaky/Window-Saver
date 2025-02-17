@@ -73,7 +73,7 @@ function deleteCluster(windowClusterId) {
     });
 }
 
-function updateWindowList() {
+function getAllWindows() {
     let allWindows = {
         windowClusterId: 0,
         windows: [],
@@ -95,6 +95,10 @@ function updateWindowList() {
 
         
     });
+}
+
+function updateWindowList() {
+    getAllWindows();
     saveClusterToLocal(0, allWindows);
     updateCurrentWindowList();
 }
@@ -175,6 +179,170 @@ function openWindow(windowId, tabs) {
     });
 }
 
+function openWindowModal(clusterId) {
+    // Remove existing modal if present
+    const existingModal = document.getElementById("window-modal");
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Create modal container
+    const modal = document.createElement("div");
+    modal.id = "window-modal";
+    modal.classList.add("fixed", "inset-0", "bg-black", "bg-opacity-50", "flex", "items-center", "justify-center");
+
+    // Modal content
+    modal.innerHTML = `
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-96 max-h-[80vh] overflow-y-auto">
+            <h2 class="text-xl font-bold text-white">Select Windows to Add</h2>
+            <div id="window-list" class="mt-4 max-h-60 overflow-y-auto"></div>
+            <div class="flex justify-end mt-4">
+                <button id="cancel-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg mr-2">Cancel</button>
+                <button id="confirm-btn" class="px-4 py-2 bg-green-500 text-white rounded-lg">Add</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const windowList = document.getElementById("window-list");
+    const confirmBtn = document.getElementById("confirm-btn");
+    const cancelBtn = document.getElementById("cancel-btn");
+    const selectedWindows = new Set();
+
+    // Fetch stored clusters
+    chrome.storage.local.get("windowClusters", (result) => {
+        let windowClusters = result.windowClusters || [];
+        let cluster = windowClusters.find((c) => c.windowClusterId === clusterId);
+        let allWindows = windowClusters.find((c) => c.windowClusterId === 0)?.windows || [];
+
+        if (!cluster) {
+            alert("Cluster not found!");
+            modal.remove();
+            return;
+        }
+
+        // Get currently added windows in the cluster
+        let existingWindowIds = new Set(cluster.windows.map((w) => w.windowId));
+
+        // Fetch all Chrome windows
+        chrome.windows.getAll({ populate: true }, (windows) => {
+            windowList.innerHTML = ""; // Clear list before loading
+
+            windows.forEach((win) => {
+                if (existingWindowIds.has(win.id)) {
+                    return; // Skip windows already in the cluster
+                }
+
+                const windowItem = document.createElement("div");
+                windowItem.classList.add("p-3", "bg-gray-700", "rounded-lg", "mb-2");
+
+                // Window label
+                const header = document.createElement("div");
+                header.classList.add("flex", "items-center", "justify-between");
+
+                const label = document.createElement("label");
+                label.classList.add("text-white", "cursor-pointer", "font-bold");
+                label.textContent = `Window ${win.id} (${win.tabs.length} tabs)`;
+
+                // Checkbox for window selection
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.classList.add("form-checkbox", "h-5", "w-5", "text-blue-500", "ml-2");
+                checkbox.dataset.windowId = win.id;
+
+                // Expand/collapse tabs button
+                const toggleTabsBtn = document.createElement("button");
+                toggleTabsBtn.textContent = "▼";
+                toggleTabsBtn.classList.add("text-white", "ml-2", "cursor-pointer", "text-sm");
+                let expanded = false;
+
+                // Container for tabs
+                const tabContainer = document.createElement("div");
+                tabContainer.classList.add("ml-4", "mt-2", "hidden");
+
+                win.tabs.forEach((tab) => {
+                    const tabItem = document.createElement("div");
+                    tabItem.classList.add("flex", "items-center", "justify-between", "text-gray-300", "text-sm", "bg-gray-600", "rounded-lg", "p-2", "mb-1");
+
+                    const tabLabel = document.createElement("span");
+                    tabLabel.textContent = tab.title;
+
+                    const tabIcon = document.createElement("img");
+                    tabIcon.src = tab.favIconUrl || "";
+                    tabIcon.classList.add("w-4", "h-4", "ml-2");
+
+                    tabItem.appendChild(tabIcon);
+                    tabItem.appendChild(tabLabel);
+                    tabContainer.appendChild(tabItem);
+                });
+
+                // Toggle tabs visibility
+                toggleTabsBtn.addEventListener("click", () => {
+                    expanded = !expanded;
+                    tabContainer.classList.toggle("hidden", !expanded);
+                    toggleTabsBtn.textContent = expanded ? "▲" : "▼";
+                });
+
+                // Handle checkbox selection
+                checkbox.addEventListener("change", (e) => {
+                    if (e.target.checked) {
+                        selectedWindows.add(win.id);
+                    } else {
+                        selectedWindows.delete(win.id);
+                    }
+                });
+
+                header.appendChild(label);
+                header.appendChild(checkbox);
+                header.appendChild(toggleTabsBtn);
+                windowItem.appendChild(header);
+                windowItem.appendChild(tabContainer);
+                windowList.appendChild(windowItem);
+            });
+        });
+    });
+
+    // Confirm button functionality
+    confirmBtn.onclick = () => {
+        if (selectedWindows.size === 0) {
+            alert("No windows selected!");
+            return;
+        }
+
+        chrome.storage.local.get("windowClusters", (result) => {
+            let windowClusters = result.windowClusters;
+            let cluster = windowClusters.find((c) => c.windowClusterId === clusterId);
+            let allWindows = windowClusters.find((c) => c.windowClusterId === 0)?.windows || [];
+
+            if (!cluster) {
+                alert("Cluster not found!");
+                return;
+            }
+
+            selectedWindows.forEach((winId) => {
+                const windowToAdd = allWindows.find((w) => w.windowId === winId);
+                if (windowToAdd) {
+                    cluster.windows.push(windowToAdd);
+                }
+            });
+
+            // Save changes to storage
+            chrome.storage.local.set({ windowClusters: windowClusters }, () => {
+                console.log(`Windows added to cluster: ${clusterId}`);
+                modal.remove(); // Close modal
+                updateCurrentWindowList(); // Refresh UI
+            });
+        });
+    };
+
+    // Cancel button functionality
+    cancelBtn.onclick = () => {
+        modal.remove();
+    };
+}
+
+
 function updateCurrentWindowList() {
     chrome.storage.local.get("windowClusters", (result) => {
         if (result.windowClusters) {
@@ -222,9 +390,12 @@ function updateCurrentWindowList() {
                 openAllButton.textContent = "Open";
                 openAllButton.addEventListener("click", () => {
                     console.log("Open window");
-                    cluster.windows.forEach((window) => {
-                        openWindow(window.windowId, window.tabs);
-                    });
+                    const userConfirmed = confirm(`Are you sure you want to open all tabs in ${cluster.clusterName}?`);
+                    if (userConfirmed) {
+                        cluster.windows.forEach((window) => {
+                            openWindow(window.windowId, window.tabs);
+                        });
+                    }
                 });
                 
                 const deleteIcon = document.createElement("div");
@@ -240,6 +411,15 @@ function updateCurrentWindowList() {
                         // Do nothing if the user cancels
                         console.log("Deletion canceled.");
                     }
+                });
+
+                const addWindowsBtn = document.createElement("button");
+                addWindowsBtn.classList.add("p-2", "bg-teal-800", "text-white", "rounded-lg", "mt-2");
+                addWindowsBtn.textContent = "Add Windows";
+                addWindowsBtn.dataset.clusterId = cluster.windowClusterId; // Store cluster ID
+
+                addWindowsBtn.addEventListener("click", () => {
+                    openWindowModal(cluster.windowClusterId);
                 });
 
                 
@@ -357,6 +537,7 @@ function updateCurrentWindowList() {
 
                 // Append the window list to the cluster section
                 clusterSection.appendChild(windowList);
+                clusterSection.appendChild(addWindowsBtn);
                 windowListContainer.appendChild(clusterSection);
 
                 // Toggle visibility of the window list when the cluster header is clicked
