@@ -73,6 +73,23 @@ function deleteCluster(windowClusterId) {
     });
 }
 
+function deleteWindow(windowClusterId, windowId) {
+    chrome.storage.local.get("windowClusters", (result) => {
+        let windowClusters = result.windowClusters;
+        if (!windowClusters) return;
+
+        const clusterIdx = windowClusters.findIndex((cluster) => cluster.clusterWindowId === windowClusterId);
+        if (clusterIdx !== -1) {
+            windowClusters[clusterIdx].windows = windowClusters[clusterIdx].windows.filter(window => window.windowId !== windowId);
+
+            chrome.storage.local.set({windowClusters: windowClusters}, () => {
+                updateCurrentWindowList()
+                console.log("Removed window cluster");
+            });
+        }
+    });
+}
+
 function getAllWindows() {
     let allWindows = {
         windowClusterId: 0,
@@ -248,7 +265,7 @@ function openWindowModal(clusterId) {
                 // Checkbox for window selection
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
-                checkbox.classList.add("form-checkbox", "h-5", "w-5", "text-blue-500", "ml-2");
+                checkbox.classList.add("form-checkbox", "h-5", "w-5", "text-blue-800", "ml-2");
                 checkbox.dataset.windowId = win.id;
 
                 // Expand/collapse tabs button
@@ -369,7 +386,7 @@ function updateCurrentWindowList() {
 
                 const clusterTitleInput = document.createElement("input");
                 clusterTitleInput.value = cluster.clusterName || `Cluster ${cluster.windowClusterId}`;
-                clusterTitleInput.classList.add("text-lg", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-35");
+                clusterTitleInput.classList.add("text-lg", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-800", "p-2", "w-35");
                 clusterTitleInput.addEventListener("input", (e) => {
                     // Update cluster name when user changes the input
                     cluster.clusterName = e.target.value;
@@ -400,7 +417,7 @@ function updateCurrentWindowList() {
                 
                 const deleteIcon = document.createElement("div");
                 deleteIcon.textContent = "DEL";
-                deleteIcon.classList.add("w-8", "h-6", "text-center", "font-semibold", "bg-red-600", "rounded-lg");
+                deleteIcon.classList.add("w-8", "h-6", "text-center", "font-semibold", "bg-red-800", "rounded-lg");
                 deleteIcon.addEventListener("click", () => {
                     const userConfirmed = confirm("Are you sure you want to delete this item?");
                     if (userConfirmed) {
@@ -480,14 +497,14 @@ function updateCurrentWindowList() {
                         tabLink.href = tab.url;
                         tabLink.target = "_blank"; // Open link in a new tab
                         tabLink.textContent = tab.title;
+
                         tabItem.appendChild(tabLink);
-                        
                         tabList.appendChild(tabItem);
                     });
 
                     // Show more button for additional tabs
                     const showMoreButton = document.createElement("button");
-                    showMoreButton.classList.add("bg-blue-500", "text-white", "p-2", "rounded-lg", "mt-4");
+                    showMoreButton.classList.add("bg-blue-800", "text-white", "p-2", "rounded-lg", "mt-4", "mr-4");
                     showMoreButton.textContent = "Show More Tabs";
                     showMoreButton.addEventListener("click", () => {
                         tabList.innerHTML = ""; // Clear the list
@@ -509,7 +526,7 @@ function updateCurrentWindowList() {
                     });
 
                     const hideButton = document.createElement("button");
-                    hideButton.classList.add("bg-blue-500", "text-white", "p-2", "rounded-lg", "mt-4");
+                    hideButton.classList.add("bg-blue-800", "text-white", "p-2", "rounded-lg", "mt-4", "mr-4");
                     hideButton.textContent = "Hide Tabs";
                     hideButton.addEventListener("click", () => {
                         tabList.innerHTML = ""; // Clear the list
@@ -530,8 +547,21 @@ function updateCurrentWindowList() {
                         windowItem.appendChild(showMoreButton);
                     });
 
+                    const deleteWindowButton = document.createElement("button");
+                    deleteWindowButton.classList.add("bg-red-800", "text-white", "p-2", "rounded-lg", "mt-4");
+                    deleteWindowButton.textContent = "Delete Window";
+                    deleteWindowButton.addEventListener("click", () => {
+                        const userConfirm = confirm(`Are you sure you want to delete window ${window.windowName ?? window.windowId}?`);
+                        if (userConfirm) {
+                            deleteWindow(cluster.clusterWindowId, window.windowId);
+                            updateCurrentWindowList();
+                            return;
+                        }
+                    });
+                    
                     windowItem.appendChild(tabList);
                     if (window.tabs.length > 5) windowItem.appendChild(showMoreButton);
+                    windowItem.appendChild(deleteWindowButton);
                     windowList.appendChild(windowItem);
                 });
 
