@@ -92,6 +92,51 @@ function saveClusterToLocal(windowClusterId, data) {
     });
 }
 
+function isTabOpen(url, windowId, tabId) {
+    chrome.windows.getAll({ populate: true }, (windows) => {
+        windows.forEach((window) => {
+            const targetWindow = windows.find((window) => {
+                window.id == windowId;
+            });
+            if (targetWindow) {
+                const targetTab = windows.tabs.find((tab) => {
+                    tab.id == tabId;
+                });
+
+                if (targetTab) {
+                    return tab.url === url;
+                }
+            }
+        });
+    });
+
+    return false;
+}
+
+function openWindow(windowId, tabs) {
+    chrome.windows.getAll({ populate: true }, (windows) => {
+        const targetWindow = windows.find((window) => window.id === windowId);
+        console.log(windowId, targetWindow);
+        
+        if (targetWindow) {
+            tabs.forEach((tab) => {
+                if (!isTabOpen(tab.url, windowId, tab.id)) {
+                    chrome.tabs.create({
+                        windowId: windowId,
+                        url: tab.url,
+                    }, (newTab) => {
+                        console.log('New tab created in window:', windowId, 'Tab ID:', newTab.id);
+                    });
+                }
+                else {
+                    console.log("Tab already open", window.id, tab.url);
+                }
+            });
+            
+        }
+    });
+}
+
 function updateCurrentWindowList(windowClusterId) {
     chrome.storage.local.get("windowClusters", (result) => {
         if (result.windowClusters) {
@@ -117,7 +162,7 @@ function updateCurrentWindowList(windowClusterId) {
 
                 const clusterTitleInput = document.createElement("input");
                 clusterTitleInput.value = cluster.clusterName || `Cluster ${windowClusterId}`;
-                clusterTitleInput.classList.add("text-xl", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-60");
+                clusterTitleInput.classList.add("text-lg", "font-bold", "bg-gray-800", "text-white", "border-b-2", "border-blue-400", "p-2", "w-40");
                 clusterTitleInput.addEventListener("input", (e) => {
                     // Update cluster name when user changes the input
                     cluster.clusterName = e.target.value;
@@ -132,7 +177,19 @@ function updateCurrentWindowList(windowClusterId) {
                 const toggleIcon = document.createElement("span");
                 toggleIcon.textContent = "▼"; // Arrow indicating expandable section
                 toggleIcon.classList.add("ml-4");
+
+                const openAllButton = document.createElement("button");
+                openAllButton.classList.add("bg-gray-700", "text-white", "p-2", "rounded-lg");
+                openAllButton.textContent = "Open All";
+                openAllButton.addEventListener("click", () => {
+                    console.log("Open window");
+                    cluster.windows.forEach((window) => {
+                        openWindow(window.windowId, window.tabs);
+                    });
+                });
+
                 
+                clusterTitleWrapper.appendChild(openAllButton);
                 clusterTitleWrapper.appendChild(toggleIcon);
                 clusterHeader.appendChild(clusterTitleWrapper);
                 clusterSection.appendChild(clusterHeader);
